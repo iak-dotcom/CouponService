@@ -1,29 +1,58 @@
 package com.khan.security.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import com.khan.security.securityImpl.UserDetailsServiceImpl;
 
 @Configuration
-public class WebSecurityConfig {
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+	@Autowired
+	UserDetailsServiceImpl userDetailsService;
+
+	@Override
+	protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+		auth.userDetailsService(userDetailsService);
+	}
+
+	@Override
+	protected void configure(HttpSecurity http) throws Exception {
+		http.authorizeRequests()
+
+				.mvcMatchers(HttpMethod.GET, "/couponapi/coupons/{code:^[A-Z]}*$", "/index", "/showGetCoupon",
+						"/getCoupon", "/couponDetails")
+
+				.hasAnyRole("USER", "ADMIN")
+
+				.mvcMatchers(HttpMethod.GET, "/showCreateCoupon", "/createCoupon", "/createResponse").hasRole("ADMIN")
+
+				.mvcMatchers(HttpMethod.POST, "/getCoupon").hasAnyRole("USER", "ADMIN")
+
+				.mvcMatchers(HttpMethod.POST, "/couponapi/coupons", "/saveCoupon", "/getCoupon").hasRole("ADMIN")
+
+				.mvcMatchers("/", "/login", "/showReg", "/registerUser").permitAll()
+
+				.anyRequest().denyAll().and().csrf().disable().logout().logoutSuccessUrl("/");
+	}
 
 	@Bean
-	BCryptPasswordEncoder passwordEncoder() {
+	public PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();
 	}
+
+	@Override
 	@Bean
-	SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		http.httpBasic();
-		http.authorizeHttpRequests()
-		//Regex didn`t work because I am using old spring and java
-		//it would work with requestMatchers
-		.antMatchers(HttpMethod.GET, "/couponapi/coupons/{code:^[A-Z]*$}")
-		.hasAnyRole("USER","ADMIN")
-		.antMatchers(HttpMethod.POST,"/couponapi/coupons")
-		.hasRole("ADMIN").and().csrf().disable();
-		return http.build();
+	public AuthenticationManager authenticationManagerBean() throws Exception {
+		return super.authenticationManagerBean();
 	}
 }
